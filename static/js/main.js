@@ -105,7 +105,10 @@ function handleDrop(e) {
     updateThumbnail(files[0]);
 }
 
+let originalFilename = '';
+
 function updateThumbnail(file) {
+    originalFilename = file.name.replace(/\.[^/.]+$/, ''); // Remove extension
     document.querySelector('.drop-zone__prompt').textContent = file.name;
 }
 
@@ -128,7 +131,6 @@ function updateScores(data) {
 }
 
 function downloadMarkdown(markdown) {
-    // Create a temporary invisible element
     const a = document.createElement('a');
     const blob = new Blob([markdown], { type: 'text/markdown' });
     
@@ -137,7 +139,7 @@ function downloadMarkdown(markdown) {
         (async () => {
             try {
                 const handle = await window.showSaveFilePicker({
-                    suggestedName: 'converted.md',
+                    suggestedName: `${originalFilename || 'converted'}.md`,
                     types: [{
                         description: 'Markdown file',
                         accept: {
@@ -152,21 +154,19 @@ function downloadMarkdown(markdown) {
             } catch (err) {
                 if (err.name !== 'AbortError') {
                     console.error('Failed to save file:', err);
-                    // Fallback to traditional download
-                    fallbackDownload(a, blob);
+                    fallbackDownload(a, blob, originalFilename);
                 }
             }
         })();
     } else {
-        // Fallback for browsers that don't support showSaveFilePicker
-        fallbackDownload(a, blob);
+        fallbackDownload(a, blob, originalFilename);
     }
 }
 
-function fallbackDownload(a, blob) {
+function fallbackDownload(a, blob, filename) {
     const url = window.URL.createObjectURL(blob);
     a.href = url;
-    a.download = 'converted.md';
+    a.download = `${filename || 'converted'}.md`;
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);
