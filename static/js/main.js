@@ -35,33 +35,53 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         
         const formData = new FormData(form);
+        updateProgress(0, 'Starting conversion...');
         
         try {
+            // Show progress before fetch
+            updateProgress(30, 'Processing file...');
+            
             const response = await fetch('/convert', {
                 method: 'POST',
                 body: formData
             });
             
+            updateProgress(60, 'Converting format...');
+            
             const data = await response.json();
             console.log('Server Response:', data); // Debug log
+            
+            updateProgress(90, 'Finalizing...');
             
             if (response.ok) {
                 document.querySelector('.preview-content').textContent = data.markdown;
                 document.querySelector('.preview-container').style.display = 'block';
                 updateScores(data);
+                updateProgress(100, 'Conversion complete!');
             } else {
                 alert(data.error || 'An error occurred');
+                updateProgress(100, 'Error occurred');
             }
         } catch (error) {
             console.error('Error:', error);
             alert('An error occurred while converting the file');
+            updateProgress(100, 'Error occurred');
         }
     });
 
     // Handle download button
-    document.querySelector('.download-btn').addEventListener('click', () => {
+    document.querySelector('.download-btn').addEventListener('click', async () => {
         const markdown = document.querySelector('.preview-content').textContent;
-        downloadMarkdown(markdown);
+        await downloadMarkdown(markdown);
+        
+        // Reset UI after download
+        document.querySelector('.preview-container').style.display = 'none';
+        document.querySelector('.preview-content').textContent = '';
+        document.querySelector('.quality-score').textContent = '';
+        document.querySelector('.quality-issues').textContent = '';
+        document.querySelector('.ai-training-score').textContent = '';
+        document.querySelector('.ai-feedback').textContent = '';
+        document.querySelector('.drop-zone__prompt').textContent = 'Drag and drop file or click to upload';
     });
 });
 
@@ -108,13 +128,64 @@ function updateScores(data) {
 }
 
 function downloadMarkdown(markdown) {
-    const blob = new Blob([markdown], { type: 'text/markdown' });
-    const url = window.URL.createObjectURL(blob);
+    // Create a temporary invisible element
     const a = document.createElement('a');
+    const blob = new Blob([markdown], { type: 'text/markdown' });
+    
+    // Use showSaveFilePicker API if supported
+    if (window.showSaveFilePicker) {
+        (async () => {
+            try {
+                const handle = await window.showSaveFilePicker({
+                    suggestedName: 'converted.md',
+                    types: [{
+                        description: 'Markdown file',
+                        accept: {
+                            'text/markdown': ['.md']
+                        }
+                    }]
+                });
+                
+                const writable = await handle.createWritable();
+                await writable.write(markdown);
+                await writable.close();
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    console.error('Failed to save file:', err);
+                    // Fallback to traditional download
+                    fallbackDownload(a, blob);
+                }
+            }
+        })();
+    } else {
+        // Fallback for browsers that don't support showSaveFilePicker
+        fallbackDownload(a, blob);
+    }
+}
+
+function fallbackDownload(a, blob) {
+    const url = window.URL.createObjectURL(blob);
     a.href = url;
     a.download = 'converted.md';
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
+}
+
+function updateProgress(percent, message = '') {
+    const progressContainer = document.querySelector('.progress-bar-container');
+    const progressBar = document.querySelector('.progress-bar__fill');
+    const progressText = document.querySelector('.progress-bar__text');
+    
+    progressContainer.style.display = 'block';
+    progressBar.style.width = `${percent}%`;
+    progressText.textContent = message || `${percent}% complete`;
+    
+    if (percent >= 100) {
+        setTimeout(() => {
+            progressContainer.style.display = 'none';
+            progressBar.style.width = '0%';
+        }, 1000);
+    }
 }

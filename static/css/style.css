@@ -95,6 +95,7 @@ h1 {
 .progress-bar-container {
     margin: 1.5rem 0;
     text-align: center;
+    display: none;
 }
 
 .progress-bar {

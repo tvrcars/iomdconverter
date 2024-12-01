@@ -9,6 +9,7 @@
 <body>
     <div class="container">
         <header>
+            <img src="{{ url_for('static', filename='images/bbb.png') }}" alt="ioMDConverter Logo" class="logo">
             <h1>ioMDConverter</h1>
             <p>Convert your documents to Markdown format</p>
         </header>
@@ -19,15 +20,15 @@
                 <input type="file" name="file" class="drop-zone__input" accept=".pdf,.docx,.doc,.xlsx,.xls">
             </div>
 
+            <div class="progress-bar-container">
+                <div class="progress-bar">
+                    <div class="progress-bar__fill"></div>
+                </div>
+                <div class="progress-bar__text"></div>
+            </div>
+
             <button type="submit" class="convert-btn">Convert to Markdown</button>
         </form>
-
-        <div class="progress-bar-container" style="display: none;">
-            <div class="progress-bar">
-                <div class="progress-bar__fill"></div>
-            </div>
-            <div class="progress-bar__text"></div>
-        </div>
 
         <div class="score-container">
             <div class="quality-section">
