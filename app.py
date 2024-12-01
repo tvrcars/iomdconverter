@@ -63,9 +63,19 @@ def convert():
             cv.convert(temp_docx)
             cv.close()
             
-            # Then convert DOCX to Markdown
-            output = pypandoc.convert_file(temp_docx, 'markdown')
-            os.remove(temp_docx)
+            # Set a timeout for the conversion process
+            timeout = 240  # 4 minutes timeout
+            
+            def convert_with_timeout():
+                return pypandoc.convert_file(temp_docx, 'markdown', 
+                                           extra_args=['--wrap=none'])
+            
+            # Run conversion with timeout
+            output = convert_with_timeout()
+            
+            # Clean up temporary files
+            if os.path.exists(temp_docx):
+                os.remove(temp_docx)
             
             # PDF-specific analysis
             content_length = len(output)
@@ -114,10 +124,8 @@ def convert():
         })
 
     except Exception as e:
-        # Clean up on error
-        if os.path.exists(temp_input):
-            os.remove(temp_input)
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f"Conversion error: {str(e)}")
+        return str(e), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
