@@ -212,4 +212,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Add form submit handler
     form.addEventListener('submit', handleSubmit);
+
+    function updateScores(data) {
+        // Update quality score with fallback
+        const qualityScore = data.quality_score || '0%';
+        document.querySelector('.quality-score').textContent = 
+            `Conversion Quality: ${qualityScore}`;
+        
+        // Update AI score with fallback
+        const aiScore = data.ai_score || '0%';
+        document.querySelector('.ai-training-score').textContent = 
+            `AI Training Score: ${aiScore}`;
+        
+        // Update feedback messages with fallbacks
+        document.querySelector('.quality-issues').textContent = 
+            data.quality_issues || 'No quality issues found';
+        document.querySelector('.ai-feedback').textContent = 
+            data.ai_feedback || 'No AI training feedback available';
+    }
 });
