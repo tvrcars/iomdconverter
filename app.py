@@ -10,12 +10,17 @@ import uuid
 import logging
 from typing import Dict, List, Optional
 from datetime import datetime
+from werkzeug.utils import send_from_directory
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+app = Flask(__name__, 
+    static_url_path='/static',
+    static_folder='static',
+    template_folder='templates'
+)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['UPLOAD_FOLDER'] = tempfile.gettempdir()
 
@@ -75,102 +80,6 @@ def assess_markdown_quality(markdown_text: str, file_type: Optional[str] = None)
     return {
         'score': max(0, quality_score),
         'issues': issues
-    }
-
-def assess_ai_training_quality(markdown_text: str) -> Dict:
-    """
-    Assess markdown quality specifically for AI training purposes.
-    Returns a score and detailed feedback about AI training suitability.
-    """
-    ai_score = 50  # Start at 50 as neutral base score
-    ai_feedback: List[str] = []
-    
-    # Structure Assessment
-    if not markdown_text.strip():
-        return {'score': 0, 'feedback': ['Empty content not suitable for training']}
-    
-    # Core structure checks (-/+)
-    headers = re.findall(r'^#{1,6}\s.+', markdown_text, re.MULTILINE)
-    if not headers:
-        ai_score -= 15
-        ai_feedback.append("Missing document structure (headers) (-)")
-    else:
-        ai_score += 15
-        ai_feedback.append("Well-structured with headers (+)")
-    
-    # Content quality checks
-    word_count = len(markdown_text.split())
-    if word_count < 100:
-        ai_score -= 25
-        ai_feedback.append("Content too brief for effective training (-)")
-    elif word_count < 300:
-        ai_score -= 10
-        ai_feedback.append("Content length below optimal (-)")
-    else:
-        ai_score += 15
-        ai_feedback.append("Good content length (+)")
-    
-    # Content richness checks
-    if re.search(r'(example|e\.g\.|for instance|such as)', markdown_text, re.IGNORECASE):
-        ai_score += 10
-        ai_feedback.append("Contains practical examples (+)")
-    else:
-        ai_score -= 5
-        ai_feedback.append("Lacks practical examples (-)")
-    
-    # Technical content checks
-    technical_terms = re.findall(r'\b(algorithm|function|method|api|interface|implementation|framework)\b', 
-                               markdown_text, 
-                               re.IGNORECASE)
-    if len(technical_terms) > 5:
-        ai_score += 10
-        ai_feedback.append("Good technical depth (+)")
-    else:
-        ai_score -= 5
-        ai_feedback.append("Limited technical depth (-)")
-    
-    # Special handling for different content types
-    has_tables = bool(re.search(r'\|[-|\s]+\|', markdown_text))
-    code_blocks = re.findall(r'```[\s\S]*?```', markdown_text)
-    
-    if has_tables:
-        # Excel/Table-specific scoring
-        ai_score += 15
-        ai_feedback.append("Contains structured data (+)")
-        if re.search(r'\d+', markdown_text):
-            ai_score += 5
-            ai_feedback.append("Includes numerical data (+)")
-    elif code_blocks:
-        # Code-specific scoring
-        ai_score += 15
-        ai_feedback.append("Contains code examples (+)")
-    else:
-        ai_score -= 10
-        ai_feedback.append("Lacks structured data or code examples (-)")
-    
-    # Format and clarity checks
-    if re.search(r'^\s*[-*+]\s', markdown_text, re.MULTILINE):
-        ai_score += 5
-        ai_feedback.append("Contains structured lists (+)")
-    
-    if re.search(r'(explains|means|refers to|is defined as|in other words)', markdown_text, re.IGNORECASE):
-        ai_score += 5
-        ai_feedback.append("Contains explanatory content (+)")
-    else:
-        ai_score -= 5
-        ai_feedback.append("Lacks explanatory context (-)")
-    
-    # Normalize score
-    ai_score = max(0, min(100, ai_score))
-    
-    # Sort feedback to group positives and negatives
-    positive_feedback = [f for f in ai_feedback if "(+)" in f]
-    negative_feedback = [f for f in ai_feedback if "(-)" in f]
-    ai_feedback = negative_feedback + positive_feedback
-    
-    return {
-        'score': ai_score,
-        'feedback': ai_feedback
     }
 
 def convert_pdf_to_markdown(input_path: str, temp_id: str) -> str:
@@ -280,6 +189,10 @@ def convert_docx_to_markdown(input_path: str) -> str:
         table_lines = []
         
         for line in lines:
+            # Skip UUID headers
+            if re.match(r'^# [a-f0-9-]{36}', line):
+                continue
+            
             # Handle tables
             if '|' in line:
                 if not in_table:
@@ -398,6 +311,102 @@ def clean_up_files(*files: str) -> None:
         except Exception as e:
             logger.error(f"Error cleaning up file {file}: {str(e)}")
 
+def assess_ai_training_quality(markdown_text: str) -> Dict:
+    """
+    Assess markdown quality specifically for AI training purposes with more accurate scoring.
+    Returns a score and detailed feedback about AI training suitability.
+    """
+    ai_score = 50  # Start at 50 as neutral base score
+    ai_feedback: List[str] = []
+    
+    # Structure Assessment
+    if not markdown_text.strip():
+        return {'score': 0, 'feedback': ['Empty content not suitable for training']}
+    
+    # Core structure checks (-/+)
+    headers = re.findall(r'^#{1,6}\s.+', markdown_text, re.MULTILINE)
+    if not headers:
+        ai_score -= 15
+        ai_feedback.append("Missing document structure (headers) (-)")
+    else:
+        ai_score += 15
+        ai_feedback.append("Well-structured with headers (+)")
+    
+    # Content quality checks
+    word_count = len(markdown_text.split())
+    if word_count < 100:
+        ai_score -= 25
+        ai_feedback.append("Content too brief for effective training (-)")
+    elif word_count < 300:
+        ai_score -= 10
+        ai_feedback.append("Content length below optimal (-)")
+    else:
+        ai_score += 15
+        ai_feedback.append("Good content length (+)")
+    
+    # Content richness checks
+    if re.search(r'(example|e\.g\.|for instance|such as)', markdown_text, re.IGNORECASE):
+        ai_score += 10
+        ai_feedback.append("Contains practical examples (+)")
+    else:
+        ai_score -= 5
+        ai_feedback.append("Lacks practical examples (-)")
+    
+    # Technical content checks
+    technical_terms = re.findall(r'\b(algorithm|function|method|api|interface|implementation|framework)\b', 
+                               markdown_text, 
+                               re.IGNORECASE)
+    if len(technical_terms) > 5:
+        ai_score += 10
+        ai_feedback.append("Good technical depth (+)")
+    else:
+        ai_score -= 5
+        ai_feedback.append("Limited technical depth (-)")
+    
+    # Special handling for different content types
+    has_tables = bool(re.search(r'\|[-|\s]+\|', markdown_text))
+    code_blocks = re.findall(r'```[\s\S]*?```', markdown_text)
+    
+    if has_tables:
+        # Excel/Table-specific scoring
+        ai_score += 15
+        ai_feedback.append("Contains structured data (+)")
+        if re.search(r'\d+', markdown_text):
+            ai_score += 5
+            ai_feedback.append("Includes numerical data (+)")
+    elif code_blocks:
+        # Code-specific scoring
+        ai_score += 15
+        ai_feedback.append("Contains code examples (+)")
+    else:
+        ai_score -= 10
+        ai_feedback.append("Lacks structured data or code examples (-)")
+    
+    # Format and clarity checks
+    if re.search(r'^\s*[-*+]\s', markdown_text, re.MULTILINE):
+        ai_score += 5
+        ai_feedback.append("Contains structured lists (+)")
+    
+    if re.search(r'(explains|means|refers to|is defined as|in other words)', markdown_text, re.IGNORECASE):
+        ai_score += 5
+        ai_feedback.append("Contains explanatory content (+)")
+    else:
+        ai_score -= 5
+        ai_feedback.append("Lacks explanatory context (-)")
+    
+    # Normalize score
+    ai_score = max(0, min(100, ai_score))
+    
+    # Sort feedback to group positives and negatives
+    positive_feedback = [f for f in ai_feedback if "(+)" in f]
+    negative_feedback = [f for f in ai_feedback if "(-)" in f]
+    ai_feedback = negative_feedback + positive_feedback
+    
+    return {
+        'score': ai_score,
+        'feedback': ai_feedback
+    }
+
 @app.route('/')
 def index():
     """Render the main page"""
@@ -439,14 +448,14 @@ def convert_file():
         else:
             raise ValueError(f"Unsupported file format: {file_ext}")
 
-        # Get AI training quality assessment
-        ai_result = assess_ai_training_quality(output)
-
         # Save output
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(output)
 
         # Prepare response
+        quality_result = assess_markdown_quality(output, file_ext)
+        ai_result = assess_ai_training_quality(output)
+        
         response = send_file(
             output_path,
             as_attachment=True,
@@ -454,7 +463,7 @@ def convert_file():
             mimetype='text/markdown'
         )
         
-        # Add quality information to headers
+        # Add both quality and AI scores to headers
         response.headers['X-Quality-Score'] = str(quality_result['score'])
         response.headers['X-Quality-Issues'] = ','.join(quality_result['issues'])
         response.headers['X-AI-Training-Score'] = str(ai_result['score'])
@@ -481,6 +490,12 @@ def request_entity_too_large(error):
 def internal_server_error(error):
     """Handle internal server errors"""
     return jsonify({'error': 'An internal server error occurred'}), 500
+
+# Add this route to debug static files
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    root_dir = os.path.dirname(os.path.abspath(__file__))
+    return send_from_directory(os.path.join(root_dir, 'static'), filename)
 
 if __name__ == '__main__':
     app.run(debug=True)
