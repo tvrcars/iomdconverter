@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ioMDConverter - Convert Documents to Markdown</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ioMDConverter</h1>
+            <p>Convert your documents to Markdown format</p>
+        </header>
+
+        <form id="uploadForm">
+            <div class="drop-zone">
+                <span class="drop-zone__prompt">Drop file here or click to upload</span>
+                <input type="file" name="file" class="drop-zone__input" accept=".pdf,.docx,.doc,.xlsx,.xls">
+            </div>
+
+            <button type="submit" class="convert-btn">Convert to Markdown</button>
+        </form>
+
+        <div class="progress-bar-container" style="display: none;">
+            <div class="progress-bar">
+                <div class="progress-bar__fill"></div>
+            </div>
+            <div class="progress-bar__text"></div>
+        </div>
+
+        <div class="score-container">
+            <div class="quality-section">
+                <div class="quality-score">Conversion Quality: --</div>
+                <div class="quality-issues"></div>
+            </div>
+            
+            <div class="ai-section">
+                <div class="ai-training-score">AI Training Score: --</div>
+                <div class="ai-feedback"></div>
+            </div>
+        </div>
+
+        <div class="preview-container" style="display: none;">
+            <div class="preview-content"></div>
+            <button class="download-btn">Download Markdown</button>
+        </div>
+
+        <div class="supported-formats">
+            Supported formats: PDF, Word (DOCX), Excel (XLSX)
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
