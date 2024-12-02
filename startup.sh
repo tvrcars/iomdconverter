@@ -8,16 +8,9 @@ echo "Starting startup script..."
 echo "Current user: $(whoami)"
 echo "Current directory: $(pwd)"
 
-# Try to get root permissions
-if [ "$EUID" -ne 0 ]; then 
-    echo "Attempting to run with sudo..."
-    sudo apt-get update || echo "Failed to run apt-get update with sudo"
-    sudo apt-get install -y libgl1-mesa-glx pandoc || echo "Failed to install dependencies with sudo"
-else
-    echo "Running as root..."
-    apt-get update || echo "Failed to run apt-get update"
-    apt-get install -y libgl1-mesa-glx pandoc || echo "Failed to install dependencies"
-fi
+# Install system dependencies
+echo "Installing system dependencies..."
+apt-get update && apt-get install -y libgl1-mesa-glx pandoc
 
 # Print environment information for debugging
 echo "PATH environment: $PATH"
