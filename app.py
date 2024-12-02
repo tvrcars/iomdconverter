@@ -3,6 +3,11 @@ import os
 import pypandoc
 import pandas as pd
 import fitz  # PyMuPDF
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__, 
     static_url_path='/static',
@@ -40,21 +45,42 @@ def convert():
         quality_issues = []
 
         if file_ext in ['.docx', '.doc']:
-            output = pypandoc.convert_file(temp_input, 'markdown')
-            
-            # Analyze content for AI training suitability
-            word_count = len(output.split())
-            if word_count < 100:
-                ai_score = "40%"
-                ai_feedback = "Limited content for AI training. This document needs more comprehensive information to be useful for training."
-                quality_issues.append("Document is too short for effective training")
-            elif word_count < 500:
-                ai_score = "70%"
-                ai_feedback = "Moderate content volume. Adding more examples and detailed explanations would improve training quality."
-                quality_issues.append("Consider adding more detailed examples")
-            else:
-                ai_score = "85%"
-                ai_feedback = "Good content volume for AI training. Consider adding structured sections and technical details if applicable."
+            try:
+                logger.debug(f"Starting DOCX conversion for file: {file.filename}")
+                logger.debug("Checking pypandoc installation...")
+                pypandoc_version = pypandoc.get_pandoc_version()
+                logger.debug(f"Pandoc version: {pypandoc_version}")
+                
+                output = pypandoc.convert_file(temp_input, 'markdown')
+                logger.debug("DOCX conversion completed successfully")
+                
+                # Analyze content for AI training suitability
+                word_count = len(output.split())
+                if word_count < 100:
+                    ai_score = "40%"
+                    ai_feedback = "Limited content for AI training. This document needs more comprehensive information to be useful for training."
+                    quality_issues.append("Document is too short for effective training")
+                elif word_count < 500:
+                    ai_score = "70%"
+                    ai_feedback = "Moderate content volume. Adding more examples and detailed explanations would improve training quality."
+                    quality_issues.append("Consider adding more detailed examples")
+                else:
+                    ai_score = "85%"
+                    ai_feedback = "Good content volume for AI training. Consider adding structured sections and technical details if applicable."
+                    
+            except OSError as e:
+                logger.error(f"Pandoc system error: {str(e)}")
+                return jsonify({
+                    'error': 'System configuration error. Please try again later.',
+                    'details': str(e)
+                }), 500
+                
+            except Exception as e:
+                logger.error(f"DOCX conversion error: {str(e)}")
+                return jsonify({
+                    'error': 'Failed to convert DOCX file',
+                    'details': str(e)
+                }), 500
                 
         elif file_ext == '.pdf':
             # Open the PDF file
@@ -123,7 +149,7 @@ def convert():
         })
 
     except Exception as e:
-        app.logger.error(f"Conversion error: {str(e)}")
+        logger.error(f"Conversion error: {str(e)}")
         return str(e), 500
 
 @app.route('/download', methods=['GET'])

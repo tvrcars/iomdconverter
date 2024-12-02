@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateThumbnail(fileInput.files[0]);
     });
 
-    // Handle form submission
+    // Handle form submission with improved error handling
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         
@@ -38,7 +38,6 @@ document.addEventListener('DOMContentLoaded', () => {
         updateProgress(0, 'Starting conversion...');
         
         try {
-            // Show progress before fetch
             updateProgress(30, 'Processing file...');
             
             const response = await fetch('/convert', {
@@ -59,12 +58,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateScores(data);
                 updateProgress(100, 'Conversion complete!');
             } else {
-                alert(data.error || 'An error occurred');
+                const errorMessage = data.details 
+                    ? `Error: ${data.error}\nDetails: ${data.details}`
+                    : data.error || 'An error occurred';
+                console.error('Conversion Error:', errorMessage);
+                alert(errorMessage);
                 updateProgress(100, 'Error occurred');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('An error occurred while converting the file');
+            alert('An error occurred while converting the file. Please check the console for details.');
             updateProgress(100, 'Error occurred');
         }
     });
