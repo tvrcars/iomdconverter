@@ -1,47 +1,46 @@
 #!/bin/bash
 set -e  # Exit on error
 
-# Set up logging to a file
-LOGFILE="/home/LogFiles/startup.log"
-exec 1> >(tee -a "$LOGFILE") 2>&1
+# Add error logging
+exec 1> >(logger -s -t $(basename $0)) 2>&1
 
-echo "Starting startup script at $(date)"
+echo "Starting startup script..."
 echo "Current user: $(whoami)"
 echo "Current directory: $(pwd)"
 
-# Try to get root permissions and install dependencies
+# Try to get root permissions
 if [ "$EUID" -ne 0 ]; then 
     echo "Attempting to run with sudo..."
-    sudo apt-get update -y || echo "Failed to run apt-get update with sudo"
-    sudo apt-get install -y wget libgl1-mesa-glx pandoc || echo "Failed to install dependencies with sudo"
+    sudo apt-get update || echo "Failed to run apt-get update with sudo"
+    sudo apt-get install -y libgl1-mesa-glx || echo "Failed to install libgl1-mesa-glx with sudo"
+    
+    # Force pypandoc to download pandoc
+    echo "Forcing pypandoc to download pandoc..."
+    python -c "import pypandoc; pypandoc.download_pandoc()" || echo "Failed to download pandoc through pypandoc"
 else
     echo "Running as root..."
-    apt-get update -y || echo "Failed to run apt-get update"
-    apt-get install -y wget libgl1-mesa-glx pandoc || echo "Failed to install dependencies"
+    apt-get update || echo "Failed to run apt-get update"
+    apt-get install -y libgl1-mesa-glx || echo "Failed to install libgl1-mesa-glx"
+    
+    # Force pypandoc to download pandoc
+    echo "Forcing pypandoc to download pandoc..."
+    python -c "import pypandoc; pypandoc.download_pandoc()" || echo "Failed to download pandoc through pypandoc"
 fi
 
-# Manual pandoc installation
-echo "Checking pandoc installation..."
-if ! command -v pandoc &> /dev/null; then
-    echo "Pandoc not found in PATH, attempting manual installation..."
-    cd /tmp
-    wget https://github.com/jgm/pandoc/releases/download/3.1.2/pandoc-3.1.2-linux-amd64.tar.gz
-    tar xvzf pandoc-3.1.2-linux-amd64.tar.gz
-    sudo mv pandoc-3.1.2/bin/pandoc /usr/local/bin/
-    rm -rf pandoc-3.1.2*
-    cd -
-fi
-
-# Environment information
+# Print environment information for debugging
 echo "PATH environment: $PATH"
-echo "Current directory contents:"
-ls -la
-echo "Pandoc location:"
+echo "Python version:"
+python --version
+echo "Pip version:"
+pip --version
+echo "Installed Python packages:"
+pip list
+
+echo "Checking pandoc installation..."
 which pandoc || echo "Pandoc not found in PATH"
-echo "Pandoc version:"
 pandoc --version || echo "Failed to get pandoc version"
 
-echo "Startup script completed at $(date)"
+echo "Startup script completed"
 
 # Start gunicorn
 gunicorn --bind=0.0.0.0:8000 app:app
