@@ -83,6 +83,11 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelector('.ai-feedback').textContent = '';
         document.querySelector('.drop-zone__prompt').textContent = 'Drag and drop file or click to upload';
     });
+
+    document.getElementById('downloadBtn').addEventListener('click', function(e) {
+        e.preventDefault();
+        downloadMarkdown();
+    });
 });
 
 function preventDefaults (e) {
@@ -130,47 +135,48 @@ function updateScores(data) {
         data.ai_feedback || 'No AI training feedback available';
 }
 
-function downloadMarkdown(markdown) {
-    const a = document.createElement('a');
-    const blob = new Blob([markdown], { type: 'text/markdown' });
-    
-    // Use showSaveFilePicker API if supported
-    if (window.showSaveFilePicker) {
-        (async () => {
-            try {
-                const handle = await window.showSaveFilePicker({
-                    suggestedName: `${originalFilename || 'converted'}.md`,
-                    types: [{
-                        description: 'Markdown file',
-                        accept: {
-                            'text/markdown': ['.md']
-                        }
-                    }]
-                });
-                
-                const writable = await handle.createWritable();
-                await writable.write(markdown);
-                await writable.close();
-            } catch (err) {
-                if (err.name !== 'AbortError') {
-                    console.error('Failed to save file:', err);
-                    fallbackDownload(a, blob, originalFilename);
-                }
-            }
-        })();
-    } else {
-        fallbackDownload(a, blob, originalFilename);
+async function downloadMarkdown(markdown) {
+    try {
+        // Try to use the modern File System API
+        if (window.showSaveFilePicker) {
+            const handle = await window.showSaveFilePicker({
+                suggestedName: `${originalFilename || 'output'}.md`,
+                types: [{
+                    description: 'Markdown File',
+                    accept: {
+                        'text/markdown': ['.md']
+                    }
+                }]
+            });
+            
+            const writable = await handle.createWritable();
+            await writable.write(markdown);
+            await writable.close();
+        } else {
+            // Fallback for browsers that don't support File System API
+            const blob = new Blob([markdown], { type: 'text/markdown' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${originalFilename || 'output'}.md`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }
+    } catch (err) {
+        console.error('Failed to save file:', err);
+        // Fallback if the user cancels or if there's an error
+        const blob = new Blob([markdown], { type: 'text/markdown' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${originalFilename || 'output'}.md`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
     }
-}
-
-function fallbackDownload(a, blob, filename) {
-    const url = window.URL.createObjectURL(blob);
-    a.href = url;
-    a.download = `${filename || 'converted'}.md`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
 }
 
 function updateProgress(percent, message = '') {

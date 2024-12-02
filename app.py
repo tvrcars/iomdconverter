@@ -1,8 +1,8 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_from_directory, send_file
 import os
 import pypandoc
-from pdf2docx import Converter
 import pandas as pd
+import fitz  # PyMuPDF
 
 app = Flask(__name__, 
     static_url_path='/static',
@@ -57,36 +57,27 @@ def convert():
                 ai_feedback = "Good content volume for AI training. Consider adding structured sections and technical details if applicable."
                 
         elif file_ext == '.pdf':
-            # Convert PDF to DOCX first
-            temp_docx = "temp_output.docx"
-            cv = Converter(temp_input)
-            cv.convert(temp_docx)
-            cv.close()
+            # Open the PDF file
+            doc = fitz.open(temp_input)
+            text = ""
             
-            # Set a timeout for the conversion process
-            timeout = 240  # 4 minutes timeout
+            # Extract text from each page
+            for page in doc:
+                text += page.get_text()
+            doc.close()
             
-            def convert_with_timeout():
-                return pypandoc.convert_file(temp_docx, 'markdown', 
-                                           extra_args=['--wrap=none'])
-            
-            # Run conversion with timeout
-            output = convert_with_timeout()
-            
-            # Clean up temporary files
-            if os.path.exists(temp_docx):
-                os.remove(temp_docx)
+            # Add some basic markdown formatting
+            output = f"# {os.path.splitext(file.filename)[0]}\n\n{text}"
             
             # PDF-specific analysis
             content_length = len(output)
             if content_length < 500:
                 ai_score = "60%"
-                ai_feedback = "PDF conversion successful but limited content. Consider using native document formats for better training data."
+                ai_feedback = "PDF conversion successful but limited content."
                 quality_issues.append("Short PDF content may not provide enough context")
             else:
                 ai_score = "75%"
-                ai_feedback = "Good content volume, but PDF conversion may lose some formatting context. Native formats preferred for AI training."
-                quality_issues.append("Some formatting may be lost in PDF conversion")
+                ai_feedback = "Good content volume from PDF conversion."
             
         elif file_ext in ['.xlsx', '.xls']:
             # Read Excel file
@@ -115,18 +106,50 @@ def convert():
         # Calculate quality score based on content and issues
         quality_score = f"{min(95, 100 - (len(quality_issues) * 10))}%"
         
+        # Save the markdown output to a file
+        with open('output.md', 'w', encoding='utf-8') as f:
+            f.write(output)
+            
+        # Store the original filename in the response
+        original_name = os.path.splitext(file.filename)[0]
+        
         return jsonify({
             'markdown': output,
             'quality_score': quality_score,
             'quality_issues': '. '.join(quality_issues) if quality_issues else "No significant quality issues found",
             'ai_score': ai_score,
-            'ai_feedback': ai_feedback
+            'ai_feedback': ai_feedback,
+            'filename': original_name
         })
 
     except Exception as e:
         app.logger.error(f"Conversion error: {str(e)}")
         return str(e), 500
 
+@app.route('/download', methods=['GET'])
+def download_file():
+    file_path = 'output.md'
+    if not os.path.exists(file_path):
+        return "File not found", 404
+    
+    # Read the content
+    with open(file_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+    
+    # Create response
+    response = app.response_class(
+        response=content,
+        status=200,
+        mimetype='text/markdown'
+    )
+    
+    # Set headers for download
+    response.headers['Content-Disposition'] = 'attachment; filename="{}.md"'.format(
+        request.args.get('filename', 'output')
+    )
+    
+    return response
+
 if __name__ == '__main__':
-    app.debug = False
-    app.run(host='0.0.0.0', port=8000)
+    app.debug = True
+    app.run(host='127.0.0.1', port=5000)
