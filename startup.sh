@@ -18,6 +18,13 @@ else
 fi
 
 echo "Checking pandoc installation..."
+if ! command -v pandoc &> /dev/null; then
+    echo "Pandoc could not be found, attempting manual installation..."
+    wget https://github.com/jgm/pandoc/releases/download/3.1.2/pandoc-3.1.2-linux-amd64.tar.gz
+    tar -xvzf pandoc-3.1.2-linux-amd64.tar.gz --strip-components 1 -C /usr/local
+    rm pandoc-3.1.2-linux-amd64.tar.gz
+fi
+
 which pandoc || echo "Pandoc not found in PATH"
 pandoc --version || echo "Failed to get pandoc version"
 
