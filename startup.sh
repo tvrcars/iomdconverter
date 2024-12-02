@@ -12,19 +12,11 @@ echo "Current directory: $(pwd)"
 if [ "$EUID" -ne 0 ]; then 
     echo "Attempting to run with sudo..."
     sudo apt-get update || echo "Failed to run apt-get update with sudo"
-    sudo apt-get install -y libgl1-mesa-glx || echo "Failed to install libgl1-mesa-glx with sudo"
-    
-    # Force pypandoc to download pandoc
-    echo "Forcing pypandoc to download pandoc..."
-    python -c "import pypandoc; pypandoc.download_pandoc()" || echo "Failed to download pandoc through pypandoc"
+    sudo apt-get install -y libgl1-mesa-glx pandoc || echo "Failed to install dependencies with sudo"
 else
     echo "Running as root..."
     apt-get update || echo "Failed to run apt-get update"
-    apt-get install -y libgl1-mesa-glx || echo "Failed to install libgl1-mesa-glx"
-    
-    # Force pypandoc to download pandoc
-    echo "Forcing pypandoc to download pandoc..."
-    python -c "import pypandoc; pypandoc.download_pandoc()" || echo "Failed to download pandoc through pypandoc"
+    apt-get install -y libgl1-mesa-glx pandoc || echo "Failed to install dependencies"
 fi
 
 # Print environment information for debugging
