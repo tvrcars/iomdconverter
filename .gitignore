@@ -1,2 +1,17 @@
+# System files
 .DS_Store
-static/.DS_Store
+**/.DS_Store
+
+# Temporary files
+output.md
+temp/
+__pycache__/
+*.pyc
+
+# Environment
+venv/
+.env
+
+# IDE files
+.vscode/
+.idea/
